@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-import argparse, sys
+import argparse
 import socket
 import urllib
 from aiohttp import web, WSMsgType
@@ -28,10 +28,10 @@ def main():
                 request.headers.get('upgrade').lower() == 'websocket':
             return await websocket_session(request)
         else:
-            return await web.Response(status=200, text=f"wss://{request.host}")
+            return web.Response(status=200, text=f"wss://{request.host}")
     
     async def websocket_session(request):
-        session_id = request.path.split('/')[2] or str(uuid.uuid4())
+        session_id = request.match_info.get('uuid') or str(uuid.uuid4())
 
         response = web.WebSocketResponse()
         await response.prepare(request)
@@ -40,11 +40,13 @@ def main():
 
         print(f"WebSocket session URL: {session_url}")
 
-        message_history[session_id] = []
+        if not session_id in message_history:
+            message_history[session_id] = []
 
-        user_message=f"[{datetime.now()}] session openned"
-        message_history[session_id].append(user_message)
+        session_messages = message_history[session_id]
 
+        user_message = f"[{datetime.now()}] session openned"
+        session_messages.append(user_message)
 
         await response.send_str(session_url)
 
@@ -54,21 +56,17 @@ def main():
             elif message.type == WSMsgType.TEXT:
                 # print(f"{session_id}: {message.data}")
 
-                user_message=f"[{datetime.now()}] {message.data}"
+                user_message = f"[{datetime.now()}] {message.data}"
 
                 # Store the message in the UUID's message history
-                message_history[session_id].append(user_message)
+                session_messages.append(user_message)
         
-        user_message=f"[{datetime.now()}] session closed"
-        message_history[session_id].append(user_message)
+        user_message = f"[{datetime.now()}] session closed"
+        session_messages.append(user_message)
             
         print(f"WebSocket session {session_id} closed")
 
         return response
-
-    # HTTP server handler
-    async def http_main_handler(request):
-        return web.Response(status=200, text=f"wss://{request.host}")
     
     async def session_handler(request):
         if 'upgrade' in request.headers and \
