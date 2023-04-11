@@ -42,6 +42,8 @@ def main():
 
         if not session_id in message_history:
             message_history[session_id] = []
+        else:
+            message_history[session_id].append('*' * 64)
 
         session_messages = message_history[session_id]
 
